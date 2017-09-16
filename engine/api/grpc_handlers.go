@@ -1,4 +1,4 @@
-package grpc
+package api
 
 import (
 	"io"
@@ -9,6 +9,7 @@ import (
 
 	"github.com/ovh/cds/engine/api/cache"
 	"github.com/ovh/cds/engine/api/database"
+	"github.com/ovh/cds/engine/api/grpc"
 	"github.com/ovh/cds/engine/api/pipeline"
 	"github.com/ovh/cds/engine/api/worker"
 	"github.com/ovh/cds/engine/api/workflow"
@@ -16,13 +17,13 @@ import (
 	"github.com/ovh/cds/sdk/log"
 )
 
-type handlers struct {
+type grpcHandlers struct {
 	dbConnectionFactory *database.DBConnectionFactory
 	store               cache.Store
 }
 
 //AddBuildLog is the BuildLogServer implementation
-func (h *handlers) AddBuildLog(stream BuildLog_AddBuildLogServer) error {
+func (h *grpcHandlers) AddBuildLog(stream grpc.BuildLog_AddBuildLogServer) error {
 	log.Debug("grpc.AddBuildLog> started stream")
 	for {
 		in, err := stream.Recv()
@@ -43,7 +44,7 @@ func (h *handlers) AddBuildLog(stream BuildLog_AddBuildLogServer) error {
 }
 
 //SendLog is the WorkflowQueueServer implementation
-func (h *handlers) SendLog(stream WorkflowQueue_SendLogServer) error {
+func (h *grpcHandlers) SendLog(stream grpc.WorkflowQueue_SendLogServer) error {
 	log.Debug("grpc.SendLog> begin")
 	defer log.Debug("grpc.SendLog> end")
 	for {
@@ -65,7 +66,7 @@ func (h *handlers) SendLog(stream WorkflowQueue_SendLogServer) error {
 }
 
 //SendResult is the WorkflowQueueServer implementation
-func (h *handlers) SendResult(c context.Context, res *sdk.Result) (*empty.Empty, error) {
+func (h *grpcHandlers) SendResult(c context.Context, res *sdk.Result) (*empty.Empty, error) {
 	log.Debug("grpc.SendResult> begin")
 	defer log.Debug("grpc.SendResult> end")
 
