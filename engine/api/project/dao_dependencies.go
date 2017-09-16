@@ -12,6 +12,7 @@ import (
 	"github.com/ovh/cds/engine/api/permission"
 	"github.com/ovh/cds/engine/api/pipeline"
 	"github.com/ovh/cds/engine/api/repositoriesmanager"
+	"github.com/ovh/cds/engine/api/workflow"
 	"github.com/ovh/cds/sdk"
 )
 
@@ -135,6 +136,15 @@ var (
 		if errRepos != nil && errRepos != sql.ErrNoRows && errRepos != sdk.ErrNoReposManager {
 			return sdk.WrapError(errRepos, "application.loadRepositoriesManagers")
 		}
+		return nil
+	}
+
+	loadWorkflows = func(db gorp.SqlExecutor, proj *sdk.Project, u *sdk.User) error {
+		workflows, errPip := workflow.LoadAll(db, proj.ID)
+		if errPip != nil && errPip != sql.ErrNoRows && errPip != sdk.ErrWorkflowNotFound && errPip != sdk.ErrWorkflowNotAttached {
+			return sdk.WrapError(errPip, "application.loadWorkflows")
+		}
+		proj.Workflows = append(proj.Workflows, workflows...)
 		return nil
 	}
 )

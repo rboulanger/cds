@@ -24,12 +24,12 @@ func LoadAll(db gorp.SqlExecutor, store cache.Store, u *sdk.User, opts ...LoadOp
 	if u == nil || u.Admin {
 		query = "select * from project ORDER by project.name, project.projectkey ASC"
 	} else {
-		query = `SELECT * 
-				FROM project 
+		query = `SELECT *
+				FROM project
 				WHERE project.id IN (
 					SELECT project_group.project_id
 					FROM project_group
-					WHERE 
+					WHERE
 						project_group.group_id = ANY(string_to_array($1, ',')::int[])
 						OR
 						$2 = ANY(string_to_array($1, ',')::int[])
@@ -209,6 +209,7 @@ var LoadOptions = struct {
 	WithApplicationPipelines LoadOptionFunc
 	WithApplicationVariables LoadOptionFunc
 	WithKeys                 LoadOptionFunc
+	WithWorkflows            LoadOptionFunc
 }{
 	Default:                  &loadDefault,
 	WithPipelines:            &loadPipelines,
@@ -221,6 +222,7 @@ var LoadOptions = struct {
 	WithApplicationPipelines: &loadApplicationPipelines,
 	WithApplicationVariables: &loadApplicationVariables,
 	WithKeys:                 &loadKeys,
+	WithWorkflows:            &loadWorkflows,
 }
 
 // LoadByID returns a project with all its variables and applications given a user. It can also returns pipelines, environments, groups, permission, and repositorires manager. See LoadOptions

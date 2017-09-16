@@ -10,11 +10,10 @@ import (
 	"github.com/go-gorp/gorp"
 	"github.com/lib/pq"
 
-	"github.com/ovh/cds/engine/api/cache"
 	"github.com/ovh/cds/engine/api/artifact"
+	"github.com/ovh/cds/engine/api/cache"
 	"github.com/ovh/cds/engine/api/event"
 	"github.com/ovh/cds/engine/api/repositoriesmanager"
-	"github.com/ovh/cds/engine/api/stats"
 	"github.com/ovh/cds/sdk"
 	"github.com/ovh/cds/sdk/log"
 )
@@ -589,14 +588,14 @@ func InsertBuildVariable(db gorp.SqlExecutor, pbID int64, v sdk.Variable) error 
 }
 
 // UpdatePipelineBuildCommits gets and update commit for given pipeline build
-func UpdatePipelineBuildCommits(db *gorp.DbMap, p *sdk.Project, pip *sdk.Pipeline, app *sdk.Application, env *sdk.Environment, pb *sdk.PipelineBuild) ([]sdk.VCSCommit, error) {
+func UpdatePipelineBuildCommits(db *gorp.DbMap, projectKey string, pip *sdk.Pipeline, app *sdk.Application, env *sdk.Environment, pb *sdk.PipelineBuild) ([]sdk.VCSCommit, error) {
 	if app.RepositoriesManager == nil {
 		return nil, nil
 	}
 
 	res := []sdk.VCSCommit{}
 	//Get the RepositoriesManager Client
-	client, errclient := repositoriesmanager.AuthorizedClient(db, p.Key, app.RepositoriesManager.Name, Store)
+	client, errclient := repositoriesmanager.AuthorizedClient(db, projectKey, app.RepositoriesManager.Name, Store)
 	if errclient != nil {
 		return nil, sdk.WrapError(errclient, "UpdatePipelineBuildCommits> Cannot get client")
 	}
@@ -660,7 +659,7 @@ func UpdatePipelineBuildCommits(db *gorp.DbMap, p *sdk.Project, pip *sdk.Pipelin
 }
 
 // InsertPipelineBuild insert build informations in database so Scheduler can pick it up
-func InsertPipelineBuild(tx gorp.SqlExecutor, project *sdk.Project, p *sdk.Pipeline, app *sdk.Application, applicationPipelineArgs []sdk.Parameter, params []sdk.Parameter, env *sdk.Environment, version int64, trigger sdk.PipelineBuildTrigger) (*sdk.PipelineBuild, error) {
+func InsertPipelineBuild(tx gorp.SqlExecutor, projectKey string, p *sdk.Pipeline, app *sdk.Application, applicationPipelineArgs []sdk.Parameter, params []sdk.Parameter, env *sdk.Environment, version int64, trigger sdk.PipelineBuildTrigger) (*sdk.PipelineBuild, error) {
 	var buildNumber int64
 	var pb sdk.PipelineBuild
 	var client sdk.RepositoriesManagerClient
@@ -668,7 +667,7 @@ func InsertPipelineBuild(tx gorp.SqlExecutor, project *sdk.Project, p *sdk.Pipel
 	//Initialize client for repository manager
 	if app.RepositoriesManager != nil && app.RepositoryFullname != "" {
 		//We don't need to pass apiURL and uiURL because they are not usefull for commit
-		client, _ = repositoriesmanager.AuthorizedClient(tx, project.Key, app.RepositoriesManager.Name, Store)
+		client, _ = repositoriesmanager.AuthorizedClient(tx, projectKey, app.RepositoriesManager.Name, Store)
 	}
 
 	// Load last finished build
@@ -829,9 +828,6 @@ func InsertPipelineBuild(tx gorp.SqlExecutor, project *sdk.Project, p *sdk.Pipel
 	pb.Parameters = params
 	pb.Application = *app
 	pb.Environment = *env
-
-	// Update stats
-	stats.PipelineEvent(tx, p.Type, project.ID, app.ID)
 
 	//Send notification
 	//Load previous pipeline (some app, pip, env and branch)

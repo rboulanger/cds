@@ -11,7 +11,6 @@ import (
 	"github.com/ovh/cds/engine/api/application"
 	"github.com/ovh/cds/engine/api/cache"
 	"github.com/ovh/cds/engine/api/pipeline"
-	"github.com/ovh/cds/engine/api/project"
 	"github.com/ovh/cds/engine/api/repositoriesmanager"
 	"github.com/ovh/cds/sdk"
 	"github.com/ovh/cds/sdk/log"
@@ -104,12 +103,6 @@ func executerRun(db *gorp.DbMap, store cache.Store, e *sdk.RepositoryPollerExecu
 		return
 	}
 
-	proj, errproj := project.Load(db, store, app.ProjectKey, nil)
-	if errproj != nil {
-		log.Warning("poller.ExecuterRun> Unable to load project : %s", errproj)
-		return
-	}
-
 	pip, errpip := pipeline.LoadPipelineByID(db, e.PipelineID, true)
 	if errpip != nil {
 		log.Warning("poller.ExecuterRun> Unable to load pipeline : %s", errpip)
@@ -119,7 +112,7 @@ func executerRun(db *gorp.DbMap, store cache.Store, e *sdk.RepositoryPollerExecu
 	for _, pb := range pbs {
 		//Update pipeline build commits
 		log.Debug("poller.ExecuterRun> get commits for pipeline build %d: %#v", pb.ID, pb)
-		if commits, err := pipeline.UpdatePipelineBuildCommits(db, proj, pip, app, &sdk.DefaultEnv, &pb); err != nil {
+		if commits, err := pipeline.UpdatePipelineBuildCommits(db, app.ProjectKey, pip, app, &sdk.DefaultEnv, &pb); err != nil {
 			log.Warning("poller.ExecuterRun> Unable to update pipeline build commits")
 		} else {
 			log.Debug("poller.ExecuterRun> %d commits for pipeline build %d", len(commits), pb.ID)
@@ -185,11 +178,6 @@ func executerProcess(tx gorp.SqlExecutor, store cache.Store, p *sdk.RepositoryPo
 }
 
 func triggerPipelines(tx gorp.SqlExecutor, store cache.Store, projectKey string, rm *sdk.RepositoriesManager, poller *sdk.RepositoryPoller, e *sdk.RepositoryPollerExecution) ([]sdk.PipelineBuild, error) {
-	proj, err := project.LoadByPipelineID(tx, store, nil, poller.Pipeline.ID)
-	if err != nil {
-		return nil, sdk.WrapError(err, "Polling.triggerPipelines> Cannot load project for pipeline %s", poller.Pipeline.Name)
-	}
-
 	e.PipelineBuildVersions = map[string]int64{}
 
 	var pbs []sdk.PipelineBuild
@@ -207,7 +195,7 @@ func triggerPipelines(tx gorp.SqlExecutor, store cache.Store, projectKey string,
 	}
 
 	for _, event := range e.CreateEvents {
-		pb, err := triggerPipeline(tx, rm, poller, sdk.VCSPushEvent(event), proj)
+		pb, err := triggerPipeline(tx, rm, poller, sdk.VCSPushEvent(event), projectKey)
 		if err != nil {
 			return nil, sdk.WrapError(err, "Polling.triggerPipelines> cannot trigger pipeline %d", poller.Pipeline.ID)
 		}
@@ -232,7 +220,7 @@ func triggerPipelines(tx gorp.SqlExecutor, store cache.Store, projectKey string,
 	return pbs, nil
 }
 
-func triggerPipeline(tx gorp.SqlExecutor, rm *sdk.RepositoriesManager, poller *sdk.RepositoryPoller, e sdk.VCSPushEvent, proj *sdk.Project) (*sdk.PipelineBuild, error) {
+func triggerPipeline(tx gorp.SqlExecutor, rm *sdk.RepositoriesManager, poller *sdk.RepositoryPoller, e sdk.VCSPushEvent, projectKey string) (*sdk.PipelineBuild, error) {
 	// Create pipeline args
 	var params []sdk.Parameter
 
@@ -274,7 +262,7 @@ func triggerPipeline(tx gorp.SqlExecutor, rm *sdk.RepositoriesManager, poller *s
 	}
 
 	//Insert the build
-	pb, err := pipeline.InsertPipelineBuild(tx, proj, &poller.Pipeline, &poller.Application, applicationPipelineArgs, params, &sdk.DefaultEnv, 0, trigger)
+	pb, err := pipeline.InsertPipelineBuild(tx, projectKey, &poller.Pipeline, &poller.Application, applicationPipelineArgs, params, &sdk.DefaultEnv, 0, trigger)
 	if err != nil {
 		return nil, err
 	}
